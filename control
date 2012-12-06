@@ -1,9 +1,9 @@
-Package: com.faultyclones.instaplus
+Package: me.ipastore.instaplus
 Name: Insta+
 Depends: mobilesubstrate, com.hackulo.us.installous (>=5.0.2-2)
-Version: 0.0.1
+Version: 1.0.0
 Architecture: iphoneos-arm
-Description: Installous on steriods
+Description: Adds IPAStore support to Installous!
 Maintainer: FAULTYCLONES
 Author: FAULTYCLONES
 Section: Tweaks

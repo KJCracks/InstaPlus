@@ -2,6 +2,7 @@
 #import <Installous/SelectDownloadTableViewController.h>
 #import <Installous/APILink.h>
 #import <Installous/APILinkResponse.h>
+#import <Installous/APILinkRequest.h>
 #import <Installous/APIResponse.h>
 #import <Installous/APIApplication.h>
 #import <Installous/APICategory.h>
@@ -25,6 +26,16 @@
 }
 %end
 */
+
+%hook UIWebView
+
+-(void) webViewDidFinishLoad:(UIWebView*)webView {
+    NSString *currentURL = [webView stringByEvaluatingJavaScriptFromString:@"window.location.href"];
+    NSLog(@"CURRENT URL BRAH %@", currentURL);
+    NSRange 
+}
+%end
+
 %hook ApptrackrAPIInternalBackendInterface
 /*
 // Hooking a class method
@@ -336,18 +347,54 @@ NSMutableArray* array;
  }
  
  // Always make sure you clean up after yourself; Not doing so could have grave consequences!
- 
+ */
  
 %hook ApptrackrAPI 
 +(id)getLinksWithRequest:(id)request {
-    NSArray* crackers = [[NSArray alloc] initWithObjects:@"Snuupy", @"ttwj", @"Kim-Jong-Un", @"TheSexyPenguin", @"qwertyoruip", @"Hexagon", @"lyetz", @"pendo324", @"Splintr", nil];
+    
+    bool ipastorefail = FALSE, installousfail = FALSE;
+    
+    APIApplicationListResponse* failResponse = [[objc_getClass("APIApplicationListResponse") alloc] init];
+    failResponse.responseCode = 404;
+    
+    //NSArray* crackers = [[NSArray alloc] initWithObjects:@"Snuupy", @"ttwj", @"Kim-Jong-Un", @"TheSexyPenguin", @"qwertyoruip", @"Hexagon", @"lyetz", @"pendo324", @"Splintr", nil];
     NSLog(@"links request %@", request);
+    
+    APILinkRequest* linkRequest = (APILinkRequest*) request;
+    NSString *urlString = [NSString stringWithFormat:@"http://ipastore.me/links.php?itunesid=%u", linkRequest.applicationID];
+    NSLog(@"YOLO URL STRING === YOLO %@", urlString);
+    NSMutableURLRequest *IPAStoreRequest = [[NSMutableURLRequest alloc] init];
+    
+    [IPAStoreRequest setURL:[NSURL URLWithString:urlString]];
+    NSData* result = [NSURLConnection sendSynchronousRequest:IPAStoreRequest returningResponse:nil error:nil];
+    
+    NSString* bleh = [[[NSString alloc] initWithData:result encoding:NSUTF8StringEncoding] autorelease];
+    if (bleh == nil) {
+        ipastorefail = TRUE;
+    }
+    NSDictionary* IPAStoreJSON = [bleh objectFromJSONString];
+    NSArray* linksArray = [IPAStoreJSON objectForKey:@"Links"];
+    if ([linksArray count] == 0) {
+        ipastorefail = TRUE;    
+    }
+    else {
+        NSLog(@"yolo fat SWAG MAGIC %@", linksArray);
+    }
+    
     id data = %orig(request);
     APILinkResponse* response = (APILinkResponse*) data;
-    APIResponse* apiresponse = (APIResponse*) data;
-    NSLog(@"responsecode: ", apiresponse.responseCode);
-    NSMutableDictionary* cooldict = [[NSMutableDictionary alloc] init];
-    for (NSString* key in response.linksDictionary) {
+    NSLog(@"dataarer DATA %@", response.versionsArray);
+    APIResponse* apiResponse = (APIResponse*) data;
+    NSLog(@"responsecode: %d", apiResponse.responseCode);
+    
+    //check if both failed, don't waste time injecting the stuff
+    if (apiResponse.responseCode != 200) {
+        installousfail = TRUE;
+    }
+   
+    
+    //modified dictionary to return    
+    /*for (NSString* key in response.linksDictionary) {
         NSMutableArray* array = [response.linksDictionary objectForKey: key];
         NSMutableArray* coolarray = [[NSMutableArray alloc] init];
         for (APILink* link in array) {
@@ -359,9 +406,41 @@ NSMutableArray* array;
         }
         [cooldict setObject: coolarray forKey: key];
         
+    }*/
+    
+    //response.linksDictionary = cooldict;
+
+    for (NSDictionary* linkData in linksArray) {
+        
+        APILink* link = [[objc_getClass("APILink") alloc] init];
+        NSLog(@"#### YOLO CREATING LINK ###");
+        link.version = [linkData objectForKey:@"fld_version_id"];
+        link.URL = [linkData objectForKey:@"fld_url"];
+        link.fileHoster = [linkData objectForKey:@"fld_download_link"];
+        //link.linkID = 
+        link.applicationID = linkRequest.applicationID;
+        link.cracker = [linkData objectForKey:@"fld_cracker"];
+        link.packageType = @"ipa";
+        link.active = TRUE;
+        
+        if (![response.versionsArray containsObject:link.version]) {
+            NSLog(@"BLUE PILL");
+            [response.versionsArray addObject:link.version];
+            NSMutableArray *linksDictionaryArray = [[NSMutableArray alloc] init];
+            [linksDictionaryArray addObject:link];
+            [response.linksDictionary setObject: linksDictionaryArray forKey:link.version];
+        }
+        else {
+            NSLog(@"RED PILL");
+            NSMutableArray* linksDictionaryArray = [response.linksDictionary objectForKey:link.version];
+            [linksDictionaryArray addObject:link]; 
+            [response.linksDictionary removeObjectForKey:link.version];
+            [response.linksDictionary setObject:linksDictionaryArray forKey: link.version];
+        }
+        
+        
     }
-    response.linksDictionary = cooldict;
-    /*NSMutableArray *array = [[NSMutableArray alloc] init];
+   /* NSMutableArray *array = [[NSMutableArray alloc] init];
     
     APILink* link = [[objc_getClass("APILink") alloc] init];
     
@@ -383,19 +462,22 @@ NSMutableArray* array;
     [link release];
     NSLog(@"data request %@",response.linksDictionary);
     NSLog(@"hi hhh");
-     
+     */
     return (id) response;
 
 }
 %end
-*/
+
+/*
 %hook APICategory
 +(id)allCategories:(id*)categories {
     NSString *iconURL = MSHookIvar<NSString*>(self, "_iconURL"); 
     iconURL = @"https://lh6.googleusercontent.com/-xGEK0oY6XmA/AAAAAAAAAAI/AAAAAAAAAA8/3vLa1BUQh0k/s250-c-k/photo.jpg";
     return %orig;
 }
+     
 
 %end
+     */
 
 
